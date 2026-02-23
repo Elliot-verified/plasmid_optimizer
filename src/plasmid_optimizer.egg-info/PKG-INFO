@@ -48,11 +48,21 @@ uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 
 Open http://localhost:8000 for the web UI. The same server serves the REST API.
 
+## UniProt integration
+
+You can load a protein sequence directly from [UniProt](https://www.uniprot.org/) by accession or FASTA URL.
+
+- **Web UI:** In "Generate peptide binder" or "Sequence to optimize", enter a UniProt accession (e.g. `Q6JKW3`) or paste a FASTA URL (e.g. `https://rest.uniprot.org/uniprotkb/Q6JKW3.fasta`) and click **Fetch** to fill the sequence.
+- **CLI:** Use `--uniprot-id Q6JKW3` (or a full FASTA URL) instead of `-s`/`-i`; the sequence is fetched and treated as amino acid.
+
 ## CLI
 
 ```bash
 # Optimize an amino acid sequence (output to stdout)
 plasmid-optimize -s "MKQL" -t aa
+
+# Fetch from UniProt and optimize
+plasmid-optimize --uniprot-id Q6JKW3 -o optimized_dna.txt
 
 # Optimize from file, write DNA to file
 plasmid-optimize -i sequence.txt -t aa -o optimized_dna.txt
@@ -83,6 +93,7 @@ plasmid-optimize -s "MKQL" -t aa --json -o result.json
 - `POST /generate-binder` — Body: `{ "target_protein_sequence", "peptide_length", "num_binders" }`. Returns `peptides` (PepMLM). Requires `[ml]`.
 - `POST /predict-metal-binding` — Body: `{ "amino_acid_sequence" }`. Returns predicted metals (MetaLATTE). Requires `[ml]` and MetaLATTE setup.
 - `GET /species` — List supported organisms for codon optimization.
+- `GET /fetch-uniprot?id=Q6JKW3` — Fetch protein sequence from UniProt by accession or FASTA URL. Returns `{ "sequence", "header" }`.
 
 ## References
 

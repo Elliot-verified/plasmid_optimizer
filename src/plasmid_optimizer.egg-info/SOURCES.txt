@@ -6,6 +6,7 @@ src/plasmid_optimizer/constraints.py
 src/plasmid_optimizer/core.py
 src/plasmid_optimizer/io.py
 src/plasmid_optimizer/species.py
+src/plasmid_optimizer/uniprot.py
 src/plasmid_optimizer.egg-info/PKG-INFO
 src/plasmid_optimizer.egg-info/SOURCES.txt
 src/plasmid_optimizer.egg-info/dependency_links.txt
