@@ -23,13 +23,20 @@
       margin: 0;
       padding: 1.5rem;
       line-height: 1.5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 40rem;
     }
     h1 { font-size: 1.5rem; margin-top: 0; color: var(--accent); }
     h2 { font-size: 1rem; margin: 1.5rem 0 0.5rem; color: var(--muted); }
     label { display: block; margin-bottom: 0.25rem; }
     input[type="text"], input[type="number"], select, textarea {
       width: 100%;
-      max-width: 40rem;
+      max-width: 100%;
       padding: 0.5rem;
       background: var(--surface);
       border: 1px solid var(--border);
@@ -42,7 +49,7 @@
       border: 1px solid var(--border);
       padding: 0.75rem 1rem;
       margin-bottom: 1rem;
-      max-width: 40rem;
+      width: 100%;
     }
     legend { color: var(--muted); font-size: 0.85rem; }
     .row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; margin-bottom: 0.5rem; }
@@ -67,7 +74,7 @@
       border: 1px solid var(--border);
       padding: 1rem;
       margin-top: 1rem;
-      max-width: 40rem;
+      width: 100%;
       white-space: pre-wrap;
       word-break: break-all;
       font-size: 0.85rem;
@@ -77,9 +84,30 @@
     .muted { color: var(--muted); font-size: 0.85rem; }
     #loading { display: none; }
     #loading.visible { display: inline; }
+    .out-wrap { position: relative; width: 100%; margin-top: 1rem; }
+    .out-wrap .out { margin-top: 0; padding-right: 2.5rem; }
+    .copy-btn {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      width: 1.75rem;
+      height: 1.75rem;
+      padding: 0;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      cursor: pointer;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .copy-btn:hover { color: var(--accent); background: var(--bg); }
+    .copy-btn svg { width: 1rem; height: 1rem; }
   </style>
 </head>
 <body>
+  <div class="container">
   <h1>Plasmid Optimizer</h1>
   <p class="muted">Optimize DNA or amino acid sequences for bacterial expression. Generate novel peptides with PepMLM and tune novelty (top-k, temperature).</p>
 
@@ -104,18 +132,24 @@
       <input type="number" id="temperature" value="1.0" min="0.01" max="10" step="0.1" style="width:5rem" title="Higher = more novel/random" />
     </div>
     <button type="button" id="btnGenerateBinder" class="secondary">Generate novel peptides</button>
-    <div id="binderResult" class="out" style="display:none;"></div>
+    <div class="out-wrap" id="binderResultWrap" style="display:none;">
+      <button type="button" class="copy-btn" title="Copy to clipboard" aria-label="Copy" data-copy-target="binderResult">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      </button>
+      <div id="binderResult" class="out"></div>
+    </div>
   </fieldset>
 
-  <h2>2. Sequence to optimize</h2>
+  <h2>2. Gene or protein to put in your plasmid</h2>
+  <p class="muted">Paste the amino acid or DNA sequence of the gene you want to express. We'll optimize it for your chosen organism and constraints (step 3) and output plasmid-ready DNA.</p>
   <fieldset>
     <div class="row">
       <label>Fetch from UniProt</label>
       <input type="text" id="uniprotSequence" placeholder="e.g. Q6JKW3 or paste FASTA URL" style="max-width:24rem" />
       <button type="button" id="btnFetchUniprotSequence" class="secondary">Fetch</button>
     </div>
-    <label>Sequence</label>
-    <textarea id="sequence" placeholder="Paste amino acid or DNA sequence, or use Fetch from UniProt above"></textarea>
+    <label>Gene / protein sequence (amino acid or DNA)</label>
+    <textarea id="sequence" placeholder="Paste your gene or protein sequence (amino acid or DNA), or use Fetch from UniProt above"></textarea>
     <div class="row">
       <label><input type="radio" name="seqType" value="aa" checked /> Amino acid</label>
       <label><input type="radio" name="seqType" value="dna" /> DNA</label>
@@ -152,8 +186,19 @@
   <button type="button" id="btnOptimize">Optimize</button>
   <span id="loading" class="muted">Optimizing…</span>
 
-  <div id="result" class="out" style="display:none;"></div>
-  <div id="report" class="out muted" style="display:none;"></div>
+  <div class="out-wrap" id="resultWrap" style="display:none;">
+    <button type="button" class="copy-btn" title="Copy to clipboard" aria-label="Copy" data-copy-target="result">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+    </button>
+    <div id="result" class="out"></div>
+  </div>
+  <div class="out-wrap" id="reportWrap" style="display:none;">
+    <button type="button" class="copy-btn" title="Copy to clipboard" aria-label="Copy" data-copy-target="report">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+    </button>
+    <div id="report" class="out muted"></div>
+  </div>
+  </div>
 
   <script>
     const API_BASE = '';
@@ -200,9 +245,11 @@
     document.getElementById('btnGenerateBinder').onclick = async () => {
       const target = document.getElementById('targetProtein').value.trim().replace(/\s/g, '');
       if (!target) { alert('Enter target protein sequence'); return; }
+      const wrap = document.getElementById('binderResultWrap');
       const el = document.getElementById('binderResult');
-      el.style.display = 'block';
+      wrap.style.display = 'block';
       el.textContent = 'Loading PepMLM…';
+      el.classList.remove('error');
       try {
         const res = await post('/generate-binder', {
           target_protein_sequence: target,
@@ -240,25 +287,42 @@
       const resultEl = document.getElementById('result');
       const reportEl = document.getElementById('report');
       loading.classList.add('visible');
-      resultEl.style.display = 'none';
-      reportEl.style.display = 'none';
+      document.getElementById('resultWrap').style.display = 'none';
+      document.getElementById('reportWrap').style.display = 'none';
       try {
         const res = await post('/optimize', body);
-        resultEl.style.display = 'block';
+        document.getElementById('resultWrap').style.display = 'block';
+        document.getElementById('reportWrap').style.display = 'block';
         resultEl.innerHTML = '<strong>Optimized DNA</strong>\n' + (res.optimized_dna || '') + '\n\n<strong>Amino acid</strong>\n' + (res.amino_acid || '');
-        reportEl.style.display = 'block';
         const rep = res.report || {};
         let reportText = 'GC%: ' + (rep.gc_content != null ? (rep.gc_content * 100).toFixed(1) + '%' : '—') + '\n';
         if (rep.constraints_summary) reportText += rep.constraints_summary + '\n';
         if (rep.error) reportText += 'Error: ' + rep.error;
         reportEl.textContent = reportText;
       } catch (e) {
-        resultEl.style.display = 'block';
+        document.getElementById('resultWrap').style.display = 'block';
         resultEl.textContent = 'Error: ' + e.message;
         resultEl.classList.add('error');
       }
       loading.classList.remove('visible');
     };
+
+    document.querySelectorAll('.copy-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-copy-target');
+        const el = document.getElementById(id);
+        if (!el) return;
+        const text = el.textContent || '';
+        try {
+          await navigator.clipboard.writeText(text);
+          btn.title = 'Copied!';
+          setTimeout(() => { btn.title = 'Copy to clipboard'; }, 1500);
+        } catch (err) {
+          btn.title = 'Copy failed';
+          setTimeout(() => { btn.title = 'Copy to clipboard'; }, 1500);
+        }
+      });
+    });
   </script>
 </body>
 </html>
