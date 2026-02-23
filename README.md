@@ -1,6 +1,6 @@
 # Plasmid Optimizer
 
-Optimize plasmid sequences (DNA or amino acid) for bacterial expression. Choose constraints (codon usage, GC content, restriction sites, secondary structure, repeats/homopolymers) and optionally use Hugging Face ML models: **PepMLM** (peptide binder generation) and **MetaLATTE** (metal-binding prediction). Delivered as a **web app** and **CLI**.
+Optimize plasmid sequences (DNA or amino acid) for bacterial expression. Choose constraints (codon usage, GC content, restriction sites, secondary structure, repeats/homopolymers) and generate **novel peptides** with **PepMLM** (tunable novelty: top-k, temperature). Delivered as a **web app** and **CLI**.
 
 ## Install
 
@@ -10,13 +10,11 @@ From the project root:
 pip install -e .
 ```
 
-For ML features (PepMLM, MetaLATTE):
+For novel peptide generation (PepMLM):
 
 ```bash
 pip install -e ".[ml]"
 ```
-
-**Note:** MetaLATTE uses a custom model. To use it, clone [ChatterjeeLab/MetaLATTE](https://huggingface.co/ChatterjeeLab/MetaLATTE) and add the repo (or its `metalatte` module) to your `PYTHONPATH`, or place it as `ChatterjeeLab/MetaLATTE` next to the project. PepMLM works out of the box with `.[ml]`.
 
 Optional: if you hit NumPy/pandas compatibility issues with DnaChisel, try `numpy<2` in your environment.
 
@@ -52,8 +50,8 @@ plasmid-optimize -i sequence.txt -t aa -o optimized_dna.txt
 # With constraints
 plasmid-optimize -s "MKQL..." -t aa --organism e_coli --gc-min 0.4 --gc-max 0.6 --avoid-enzymes EcoRI,BamHI
 
-# Generate peptide binders for a target protein (PepMLM)
-plasmid-optimize --generate-binder-for-target "MKTIIALSYIFCL..."
+# Generate novel peptides for a target protein (PepMLM; tune novelty with top-k and temperature)
+plasmid-optimize --generate-binder-for-target "MKTIIALSYIFCL..." --peptide-length 15 --num-binders 4 --top-k 3 --temperature 1.0
 
 # JSON output
 plasmid-optimize -s "MKQL" -t aa --json -o result.json
@@ -71,15 +69,22 @@ plasmid-optimize -s "MKQL" -t aa --json -o result.json
 
 ## API
 
-- `POST /optimize` — Body: `{ "sequence", "sequence_type": "aa"|"dna", "constraints": {...}, "include_metal_prediction": true }`. Returns `optimized_dna`, `amino_acid`, `report` (with optional `metal_binding`).
-- `POST /generate-binder` — Body: `{ "target_protein_sequence", "peptide_length", "num_binders" }`. Returns `peptides` (PepMLM). Requires `[ml]`.
-- `POST /predict-metal-binding` — Body: `{ "amino_acid_sequence" }`. Returns predicted metals (MetaLATTE). Requires `[ml]` and MetaLATTE setup.
+- `POST /optimize` — Body: `{ "sequence", "sequence_type": "aa"|"dna", "constraints": {...} }`. Returns `optimized_dna`, `amino_acid`, `report`.
+- `POST /generate-binder` — Novel peptide generation. Body: `{ "target_protein_sequence", "peptide_length", "num_binders", "top_k", "temperature" }`. Returns `peptides`. Requires `[ml]`. Higher `top_k` and `temperature` increase diversity/novelty.
 - `GET /species` — List supported organisms for codon optimization.
 - `GET /fetch-uniprot?id=Q6JKW3` — Fetch protein sequence from UniProt by accession or FASTA URL. Returns `{ "sequence", "header" }`.
+
+## Novel peptide generation (PepMLM)
+
+| Parameter     | Description |
+|---------------|-------------|
+| **peptide_length** | Length of generated peptide (masked positions). |
+| **num_binders**    | Number of novel sequences to generate. |
+| **top_k**          | Top-k candidates per position; higher = more diversity. |
+| **temperature**    | Sampling temperature; higher = more novel/random. |
 
 ## References
 
 - [DnaChisel](https://edinburgh-genome-foundry.github.io/DnaChisel/) — sequence optimization.
 - [ViennaRNA](https://www.tbi.univie.ac.at/RNA/) — RNA structure (optional).
-- [PepMLM (ChatterjeeLab/PepMLM-650M)](https://huggingface.co/ChatterjeeLab/PepMLM-650M) — peptide binder generation.
-- [MetaLATTE (ChatterjeeLab/MetaLATTE)](https://huggingface.co/ChatterjeeLab/MetaLATTE) — metal-binding prediction.
+- [PepMLM (ChatterjeeLab/PepMLM-650M)](https://huggingface.co/ChatterjeeLab/PepMLM-650M) — novel peptide generation.

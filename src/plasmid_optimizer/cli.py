@@ -89,22 +89,40 @@ def main():
         type=Path,
         help="JSON config file for constraints (overrides CLI flags).",
     )
-    # ML
+    # Novel peptide generation (PepMLM)
     parser.add_argument(
         "--generate-binder-for-target",
         type=str,
         metavar="SEQUENCE_OR_FILE",
-        help="Generate peptide binders for target protein (PepMLM); print peptides and exit.",
+        help="Generate novel peptides for target protein (PepMLM); print sequences and exit.",
     )
     parser.add_argument(
-        "--predict-metal-binding",
-        action="store_true",
-        help="Run MetaLATTE on optimized AA (or with --input) and print predicted metals.",
+        "--peptide-length",
+        type=int,
+        default=15,
+        metavar="N",
+        help="Length of generated peptide (default 15). Used with --generate-binder-for-target.",
     )
     parser.add_argument(
-        "--no-metal-prediction",
-        action="store_true",
-        help="Do not include metal-binding prediction in optimize step.",
+        "--num-binders",
+        type=int,
+        default=4,
+        metavar="N",
+        help="Number of novel sequences to generate (default 4).",
+    )
+    parser.add_argument(
+        "--top-k",
+        type=int,
+        default=3,
+        metavar="K",
+        help="Top-k candidates per position; higher = more diversity (default 3).",
+    )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=1.0,
+        metavar="T",
+        help="Sampling temperature; higher = more novel/random (default 1.0).",
     )
     parser.add_argument(
         "--json",
@@ -114,7 +132,7 @@ def main():
 
     args = parser.parse_args()
 
-    # Generate binder only
+    # Novel peptide generation only
     if args.generate_binder_for_target is not None:
         seq = args.generate_binder_for_target.strip()
         if Path(seq).exists():
@@ -122,9 +140,15 @@ def main():
         seq = normalize_sequence(seq)
         try:
             from .ml.pepmlm import generate_binders
-            peptides = generate_binders(seq, peptide_length=15, num_binders=4)
+            peptides = generate_binders(
+                seq,
+                peptide_length=args.peptide_length,
+                num_binders=args.num_binders,
+                top_k=args.top_k,
+                temperature=args.temperature,
+            )
             for i, p in enumerate(peptides, 1):
-                print(f"Binder {i}: {p}")
+                print(f"Peptide {i}: {p}")
         except ImportError:
             print("PepMLM not available. Install with: pip install plasmid_optimizer[ml]", file=sys.stderr)
             sys.exit(1)
@@ -168,19 +192,6 @@ def main():
     if result.get("report", {}).get("error") and not result.get("optimized_dna"):
         print(result["report"]["error"], file=sys.stderr)
         sys.exit(1)
-
-    # Optional metal prediction
-    if args.predict_metal_binding and not args.no_metal_prediction:
-        aa = result.get("amino_acid") or sequence if args.type == "aa" else result.get("amino_acid")
-        if aa:
-            try:
-                from .ml.metalatte import predict_metal_binding
-                mb = predict_metal_binding(aa)
-                result.setdefault("report", {})["metal_binding"] = mb
-                if mb.get("predicted_metals"):
-                    print("Predicted metals:", ", ".join(mb["predicted_metals"]), file=sys.stderr)
-            except ImportError:
-                pass
 
     if args.json:
         out = json.dumps({

@@ -1,8 +1,8 @@
-"""FastAPI app: POST /optimize, POST /generate-binder, POST /predict-metal-binding."""
+"""FastAPI app: POST /optimize, POST /generate-binder; novel peptide generation with PepMLM."""
 
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,15 +15,6 @@ from plasmid_optimizer.constraints import ConstraintConfig
 from plasmid_optimizer.core import optimize as run_optimize
 from plasmid_optimizer.species import SUPPORTED_SPECIES
 from plasmid_optimizer.uniprot import fetch_uniprot_fasta
-
-
-def _metal_binding_for_sequence(aa_sequence: str) -> Optional[dict]:
-    """Run MetaLATTE if available; else return None."""
-    try:
-        from plasmid_optimizer.ml.metalatte import predict_metal_binding
-        return predict_metal_binding(aa_sequence)
-    except Exception:
-        return None
 
 
 @asynccontextmanager
@@ -67,17 +58,15 @@ class OptimizeRequest(BaseModel):
     sequence: str
     sequence_type: str = Field(..., pattern="^(aa|dna)$")
     constraints: Optional[OptimizeConstraints] = None
-    include_metal_prediction: bool = Field(default=True)
 
 
 class GenerateBinderRequest(BaseModel):
+    """Novel peptide generation: target + novelty controls."""
     target_protein_sequence: str
-    peptide_length: int = Field(default=15, ge=5, le=50)
-    num_binders: int = Field(default=4, ge=1, le=20)
-
-
-class PredictMetalRequest(BaseModel):
-    amino_acid_sequence: str
+    peptide_length: int = Field(default=15, ge=5, le=50, description="Length of generated peptide (masked positions)")
+    num_binders: int = Field(default=4, ge=1, le=20, description="Number of novel sequences to generate")
+    top_k: int = Field(default=3, ge=1, le=20, description="Top-k candidates per position; higher = more diversity")
+    temperature: float = Field(default=1.0, ge=0.01, le=10.0, description="Sampling temperature; higher = more novel/random")
 
 
 # --- Endpoints ---
@@ -116,17 +105,12 @@ def optimize(request: OptimizeRequest) -> dict:
     if result.get("report", {}).get("error") and not result.get("optimized_dna"):
         raise HTTPException(status_code=400, detail=result["report"]["error"])
 
-    if request.include_metal_prediction and result.get("amino_acid"):
-        mb = _metal_binding_for_sequence(result["amino_acid"])
-        if mb is not None:
-            result.setdefault("report", {})["metal_binding"] = mb
-
     return result
 
 
 @app.post("/generate-binder")
 def generate_binder(request: GenerateBinderRequest) -> dict:
-    """Generate peptide binders for a target protein using PepMLM (requires [ml] extra)."""
+    """Generate novel peptide sequences for a target protein using PepMLM (requires [ml] extra)."""
     try:
         from plasmid_optimizer.ml.pepmlm import generate_binders
     except ImportError:
@@ -138,21 +122,10 @@ def generate_binder(request: GenerateBinderRequest) -> dict:
         target_protein_sequence=request.target_protein_sequence,
         peptide_length=request.peptide_length,
         num_binders=request.num_binders,
+        top_k=request.top_k,
+        temperature=request.temperature,
     )
     return {"peptides": peptides}
-
-
-@app.post("/predict-metal-binding")
-def predict_metal_binding(request: PredictMetalRequest) -> dict:
-    """Predict metal-binding for an amino acid sequence using MetaLATTE (requires [ml] extra)."""
-    try:
-        from plasmid_optimizer.ml.metalatte import predict_metal_binding as _pred
-    except ImportError:
-        raise HTTPException(
-            status_code=501,
-            detail="MetaLATTE is not available. Install plasmid_optimizer[ml] and set up MetaLATTE repo.",
-        )
-    return _pred(request.amino_acid_sequence)
 
 
 if __name__ == "__main__":

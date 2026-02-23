@@ -31,11 +31,13 @@ def generate_binders(
     peptide_length: int = 15,
     num_binders: int = 4,
     top_k: int = 3,
+    temperature: float = 1.0,
 ) -> List[str]:
     """
-    Generate peptide binder sequences for the given target protein using PepMLM.
+    Generate novel peptide binder sequences for the given target protein using PepMLM.
 
-    Returns a list of peptide strings (one-letter amino acid).
+    Novelty/diversity is controlled by top_k (candidate pool per position) and temperature
+    (higher = more random sampling). Returns a list of peptide strings (one-letter amino acid).
     """
     import torch
     from torch.distributions.categorical import Categorical
@@ -50,6 +52,9 @@ def generate_binders(
     masked_peptide = mask_token * peptide_length
     input_sequence = target + masked_peptide
 
+    # Clamp temperature to avoid division issues
+    temp = max(1e-6, float(temperature))
+
     binders = []
     for _ in range(num_binders):
         inputs = tokenizer(input_sequence, return_tensors="pt").to(device)
@@ -60,8 +65,10 @@ def generate_binders(
         mask_positions = (inputs["input_ids"] == mask_token_id).nonzero(as_tuple=True)[1]
         logits_at_masks = logits[0, mask_positions]
 
-        top_k_logits, top_k_indices = logits_at_masks.topk(min(top_k, logits_at_masks.size(-1)), dim=-1)
-        probs = torch.nn.functional.softmax(top_k_logits, dim=-1)
+        k = min(max(1, top_k), logits_at_masks.size(-1))
+        top_k_logits, top_k_indices = logits_at_masks.topk(k, dim=-1)
+        # Temperature scaling: higher temp = flatter probs = more novelty
+        probs = torch.nn.functional.softmax(top_k_logits / temp, dim=-1)
         sampled = Categorical(probs).sample()
         predicted_ids = top_k_indices.gather(-1, sampled.unsqueeze(-1)).squeeze(-1)
 

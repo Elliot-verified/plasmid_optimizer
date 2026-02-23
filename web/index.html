@@ -81,11 +81,11 @@
 </head>
 <body>
   <h1>Plasmid Optimizer</h1>
-  <p class="muted">Optimize DNA or amino acid sequences for bacterial expression. Choose constraints and optionally use ML (PepMLM, MetaLATTE).</p>
+  <p class="muted">Optimize DNA or amino acid sequences for bacterial expression. Generate novel peptides with PepMLM and tune novelty (top-k, temperature).</p>
 
-  <h2>1. Generate peptide binder (optional)</h2>
+  <h2>1. Novel peptide generation (optional)</h2>
   <fieldset>
-    <legend>PepMLM: target protein → peptide binders</legend>
+    <legend>PepMLM: target protein → novel peptide sequences</legend>
     <div class="row">
       <label>Fetch from UniProt</label>
       <input type="text" id="uniprotTarget" placeholder="e.g. Q6JKW3 or paste FASTA URL" style="max-width:24rem" />
@@ -93,7 +93,17 @@
     </div>
     <label>Target protein sequence (amino acid, 1-letter)</label>
     <textarea id="targetProtein" placeholder="e.g. MKQL... or use Fetch from UniProt above"></textarea>
-    <button type="button" id="btnGenerateBinder" class="secondary">Generate binders</button>
+    <div class="row">
+      <label>Peptide length</label>
+      <input type="number" id="peptideLength" value="15" min="5" max="50" style="width:5rem" />
+      <label>Num sequences</label>
+      <input type="number" id="numBinders" value="4" min="1" max="20" style="width:5rem" />
+      <label>Top-k</label>
+      <input type="number" id="topK" value="3" min="1" max="20" style="width:4rem" title="Candidate pool per position; higher = more diversity" />
+      <label>Temperature</label>
+      <input type="number" id="temperature" value="1.0" min="0.01" max="10" step="0.1" style="width:5rem" title="Higher = more novel/random" />
+    </div>
+    <button type="button" id="btnGenerateBinder" class="secondary">Generate novel peptides</button>
     <div id="binderResult" class="out" style="display:none;"></div>
   </fieldset>
 
@@ -110,7 +120,6 @@
       <label><input type="radio" name="seqType" value="aa" checked /> Amino acid</label>
       <label><input type="radio" name="seqType" value="dna" /> DNA</label>
     </div>
-    <label><input type="checkbox" id="includeMetal" checked /> Include metal-binding prediction (MetaLATTE) in report</label>
   </fieldset>
 
   <h2>3. Constraints</h2>
@@ -197,10 +206,12 @@
       try {
         const res = await post('/generate-binder', {
           target_protein_sequence: target,
-          peptide_length: 15,
-          num_binders: 4,
+          peptide_length: parseInt(document.getElementById('peptideLength').value, 10),
+          num_binders: parseInt(document.getElementById('numBinders').value, 10),
+          top_k: parseInt(document.getElementById('topK').value, 10),
+          temperature: parseFloat(document.getElementById('temperature').value),
         });
-        el.innerHTML = (res.peptides || []).map((p, i) => `Binder ${i + 1}: ${p}`).join('\n') || 'No peptides returned.';
+        el.innerHTML = (res.peptides || []).map((p, i) => `Peptide ${i + 1}: ${p}`).join('\n') || 'No peptides returned.';
       } catch (e) {
         el.textContent = 'Error: ' + e.message;
         el.classList.add('error');
@@ -215,7 +226,6 @@
       const body = {
         sequence,
         sequence_type: seqType,
-        include_metal_prediction: document.getElementById('includeMetal').checked,
         constraints: {
           codon_organism: document.getElementById('organism').value,
           gc_min: parseFloat(document.getElementById('gcMin').value),
@@ -239,8 +249,6 @@
         reportEl.style.display = 'block';
         const rep = res.report || {};
         let reportText = 'GC%: ' + (rep.gc_content != null ? (rep.gc_content * 100).toFixed(1) + '%' : '—') + '\n';
-        if (rep.metal_binding && rep.metal_binding.predicted_metals && rep.metal_binding.predicted_metals.length)
-          reportText += 'Predicted metals: ' + rep.metal_binding.predicted_metals.join(', ') + '\n';
         if (rep.constraints_summary) reportText += rep.constraints_summary + '\n';
         if (rep.error) reportText += 'Error: ' + rep.error;
         reportEl.textContent = reportText;
