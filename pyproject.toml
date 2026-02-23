@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "plasmid_optimizer"
+version = "0.1.0"
+description = "Plasmid sequence optimizer with constraints and optional ML (PepMLM, MetaLATTE)"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "dnachisel>=3.0",
+    "biopython>=1.81",
+    "ViennaRNA>=2.6",
+    "fastapi>=0.104",
+    "uvicorn[standard]>=0.24",
+]
+
+[project.optional-dependencies]
+ml = [
+    "transformers>=4.30",
+    "torch>=2.0",
+    "accelerate>=0.20",
+]
+
+reports = [
+    "dnachisel[reports]",
+]
+
+[project.scripts]
+plasmid-optimize = "plasmid_optimizer.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"

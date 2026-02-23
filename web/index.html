@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Plasmid Optimizer</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --border: #2d3a4f;
+      --text: #e6edf3;
+      --muted: #8b9eb0;
+      --accent: #58a6ff;
+      --success: #3fb950;
+      --error: #f85149;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 1.5rem;
+      line-height: 1.5;
+    }
+    h1 { font-size: 1.5rem; margin-top: 0; color: var(--accent); }
+    h2 { font-size: 1rem; margin: 1.5rem 0 0.5rem; color: var(--muted); }
+    label { display: block; margin-bottom: 0.25rem; }
+    input[type="text"], input[type="number"], select, textarea {
+      width: 100%;
+      max-width: 40rem;
+      padding: 0.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.9rem;
+    }
+    textarea { min-height: 120px; resize: vertical; }
+    fieldset {
+      border: 1px solid var(--border);
+      padding: 0.75rem 1rem;
+      margin-bottom: 1rem;
+      max-width: 40rem;
+    }
+    legend { color: var(--muted); font-size: 0.85rem; }
+    .row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; margin-bottom: 0.5rem; }
+    .row label { margin: 0; display: flex; align-items: center; gap: 0.5rem; }
+    input[type="checkbox"] { width: auto; }
+    button {
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      padding: 0.5rem 1rem;
+      font-family: inherit;
+      font-size: 0.9rem;
+      cursor: pointer;
+      margin-right: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    button:hover { opacity: 0.9; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+    .out {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 1rem;
+      margin-top: 1rem;
+      max-width: 40rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+      font-size: 0.85rem;
+    }
+    .error { color: var(--error); }
+    .success { color: var(--success); }
+    .muted { color: var(--muted); font-size: 0.85rem; }
+    #loading { display: none; }
+    #loading.visible { display: inline; }
+  </style>
+</head>
+<body>
+  <h1>Plasmid Optimizer</h1>
+  <p class="muted">Optimize DNA or amino acid sequences for bacterial expression. Choose constraints and optionally use ML (PepMLM, MetaLATTE).</p>
+
+  <h2>1. Generate peptide binder (optional)</h2>
+  <fieldset>
+    <legend>PepMLM: target protein → peptide binders</legend>
+    <div class="row">
+      <label>Fetch from UniProt</label>
+      <input type="text" id="uniprotTarget" placeholder="e.g. Q6JKW3 or paste FASTA URL" style="max-width:24rem" />
+      <button type="button" id="btnFetchUniprotTarget" class="secondary">Fetch</button>
+    </div>
+    <label>Target protein sequence (amino acid, 1-letter)</label>
+    <textarea id="targetProtein" placeholder="e.g. MKQL... or use Fetch from UniProt above"></textarea>
+    <button type="button" id="btnGenerateBinder" class="secondary">Generate binders</button>
+    <div id="binderResult" class="out" style="display:none;"></div>
+  </fieldset>
+
+  <h2>2. Sequence to optimize</h2>
+  <fieldset>
+    <div class="row">
+      <label>Fetch from UniProt</label>
+      <input type="text" id="uniprotSequence" placeholder="e.g. Q6JKW3 or paste FASTA URL" style="max-width:24rem" />
+      <button type="button" id="btnFetchUniprotSequence" class="secondary">Fetch</button>
+    </div>
+    <label>Sequence</label>
+    <textarea id="sequence" placeholder="Paste amino acid or DNA sequence, or use Fetch from UniProt above"></textarea>
+    <div class="row">
+      <label><input type="radio" name="seqType" value="aa" checked /> Amino acid</label>
+      <label><input type="radio" name="seqType" value="dna" /> DNA</label>
+    </div>
+    <label><input type="checkbox" id="includeMetal" checked /> Include metal-binding prediction (MetaLATTE) in report</label>
+  </fieldset>
+
+  <h2>3. Constraints</h2>
+  <fieldset>
+    <div class="row">
+      <label>Organism</label>
+      <select id="organism">
+        <option value="e_coli">E. coli</option>
+        <option value="s_cerevisiae">S. cerevisiae</option>
+        <option value="b_subtilis">B. subtilis</option>
+        <option value="h_sapiens">H. sapiens</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>GC min</label>
+      <input type="number" id="gcMin" value="0.4" min="0" max="1" step="0.05" style="width:6rem" />
+      <label>GC max</label>
+      <input type="number" id="gcMax" value="0.6" min="0" max="1" step="0.05" style="width:6rem" />
+      <label>Window</label>
+      <input type="number" id="gcWindow" value="50" min="10" max="500" style="width:5rem" />
+    </div>
+    <div class="row">
+      <label><input type="checkbox" id="avoidSecondary" checked /> Avoid secondary structure</label>
+      <label><input type="checkbox" id="avoidRepeats" checked /> Avoid repeats</label>
+    </div>
+    <label>Restriction enzymes to avoid (comma-separated)</label>
+    <input type="text" id="avoidEnzymes" placeholder="e.g. EcoRI, BamHI, BsaI" />
+  </fieldset>
+
+  <button type="button" id="btnOptimize">Optimize</button>
+  <span id="loading" class="muted">Optimizing…</span>
+
+  <div id="result" class="out" style="display:none;"></div>
+  <div id="report" class="out muted" style="display:none;"></div>
+
+  <script>
+    const API_BASE = '';
+    async function post(path, body) {
+      const r = await fetch(API_BASE + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) {
+        const t = await r.text();
+        throw new Error(t || r.statusText);
+      }
+      return r.json();
+    }
+    async function get(path, params) {
+      const q = new URLSearchParams(params).toString();
+      const r = await fetch(API_BASE + path + (q ? '?' + q : ''));
+      if (!r.ok) {
+        const t = await r.text();
+        throw new Error(t || r.statusText);
+      }
+      return r.json();
+    }
+
+    async function fetchUniprotInto(idOrUrl, targetTextareaId, typeRadioAa) {
+      if (!idOrUrl.trim()) { alert('Enter a UniProt accession (e.g. Q6JKW3) or paste the FASTA URL.'); return; }
+      const data = await get('/fetch-uniprot', { id: idOrUrl.trim() });
+      document.getElementById(targetTextareaId).value = data.sequence || '';
+      if (typeRadioAa) document.querySelector('input[name="seqType"][value="aa"]').checked = true;
+    }
+
+    document.getElementById('btnFetchUniprotTarget').onclick = async () => {
+      try {
+        await fetchUniprotInto(document.getElementById('uniprotTarget').value, 'targetProtein', false);
+      } catch (e) { alert('Fetch failed: ' + e.message); }
+    };
+    document.getElementById('btnFetchUniprotSequence').onclick = async () => {
+      try {
+        await fetchUniprotInto(document.getElementById('uniprotSequence').value, 'sequence', true);
+      } catch (e) { alert('Fetch failed: ' + e.message); }
+    };
+
+    document.getElementById('btnGenerateBinder').onclick = async () => {
+      const target = document.getElementById('targetProtein').value.trim().replace(/\s/g, '');
+      if (!target) { alert('Enter target protein sequence'); return; }
+      const el = document.getElementById('binderResult');
+      el.style.display = 'block';
+      el.textContent = 'Loading PepMLM…';
+      try {
+        const res = await post('/generate-binder', {
+          target_protein_sequence: target,
+          peptide_length: 15,
+          num_binders: 4,
+        });
+        el.innerHTML = (res.peptides || []).map((p, i) => `Binder ${i + 1}: ${p}`).join('\n') || 'No peptides returned.';
+      } catch (e) {
+        el.textContent = 'Error: ' + e.message;
+        el.classList.add('error');
+      }
+    };
+
+    document.getElementById('btnOptimize').onclick = async () => {
+      const sequence = document.getElementById('sequence').value.trim().replace(/\s/g, '');
+      if (!sequence) { alert('Enter sequence'); return; }
+      const seqType = document.querySelector('input[name="seqType"]:checked').value;
+      const enzymes = document.getElementById('avoidEnzymes').value.split(',').map(s => s.trim()).filter(Boolean);
+      const body = {
+        sequence,
+        sequence_type: seqType,
+        include_metal_prediction: document.getElementById('includeMetal').checked,
+        constraints: {
+          codon_organism: document.getElementById('organism').value,
+          gc_min: parseFloat(document.getElementById('gcMin').value),
+          gc_max: parseFloat(document.getElementById('gcMax').value),
+          gc_window: parseInt(document.getElementById('gcWindow').value, 10),
+          avoid_restriction_enzymes: enzymes,
+          avoid_secondary_structure: document.getElementById('avoidSecondary').checked,
+          avoid_repeats: document.getElementById('avoidRepeats').checked,
+        },
+      };
+      const loading = document.getElementById('loading');
+      const resultEl = document.getElementById('result');
+      const reportEl = document.getElementById('report');
+      loading.classList.add('visible');
+      resultEl.style.display = 'none';
+      reportEl.style.display = 'none';
+      try {
+        const res = await post('/optimize', body);
+        resultEl.style.display = 'block';
+        resultEl.innerHTML = '<strong>Optimized DNA</strong>\n' + (res.optimized_dna || '') + '\n\n<strong>Amino acid</strong>\n' + (res.amino_acid || '');
+        reportEl.style.display = 'block';
+        const rep = res.report || {};
+        let reportText = 'GC%: ' + (rep.gc_content != null ? (rep.gc_content * 100).toFixed(1) + '%' : '—') + '\n';
+        if (rep.metal_binding && rep.metal_binding.predicted_metals && rep.metal_binding.predicted_metals.length)
+          reportText += 'Predicted metals: ' + rep.metal_binding.predicted_metals.join(', ') + '\n';
+        if (rep.constraints_summary) reportText += rep.constraints_summary + '\n';
+        if (rep.error) reportText += 'Error: ' + rep.error;
+        reportEl.textContent = reportText;
+      } catch (e) {
+        resultEl.style.display = 'block';
+        resultEl.textContent = 'Error: ' + e.message;
+        resultEl.classList.add('error');
+      }
+      loading.classList.remove('visible');
+    };
+  </script>
+</body>
+</html>
