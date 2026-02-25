@@ -83,6 +83,10 @@ plasmid-optimize -s "MKQL" -t aa --json -o result.json
 | **top_k**          | Top-k candidates per position; higher = more diversity. |
 | **temperature**    | Sampling temperature; higher = more novel/random. |
 
+## Hosting with PepMLM (GCP)
+
+To run the app **with** PepMLM (e.g. on Google Cloud), store the model in GCS and run the API with `PEPMLM_MODEL_PATH` or `PEPMLM_GCS_URI`. See **[HOSTING.md](HOSTING.md)** for step-by-step GCP setup (save model to GCS, Cloud Run, or GCE VM).
+
 ## References
 
 - [DnaChisel](https://edinburgh-genome-foundry.github.io/DnaChisel/) — sequence optimization.

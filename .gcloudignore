@@ -1,0 +1,13 @@
+# Match .dockerignore so the build context is small (no model or venv)
+.git
+__pycache__
+*.pyc
+.venv
+venv
+*.egg-info
+pepmlm-650m
+.env
+.env.*
+*.md
+.cursor
+*.plan.md

@@ -1,0 +1,45 @@
+# Build with more CPU/memory to avoid OOM during pip install.
+# Deploy: gcloud builds submit --config=cloudbuild.yaml
+# (Set _SERVICE_NAME and _REGION below or pass via --substitutions.)
+
+substitutions:
+  _SERVICE_NAME: plasmid-optimizer
+  _REGION: us-central1
+
+options:
+  machineType: "E2_HIGHCPU_8"
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "build"
+      - "-t"
+      - "us-central1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/${_SERVICE_NAME}:${BUILD_ID}"
+      - "."
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "push"
+      - "us-central1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/${_SERVICE_NAME}:${BUILD_ID}"
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: gcloud
+    args:
+      - "run"
+      - "deploy"
+      - "${_SERVICE_NAME}"
+      - "--image"
+      - "us-central1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/${_SERVICE_NAME}:${BUILD_ID}"
+      - "--region"
+      - "${_REGION}"
+      - "--platform"
+      - "managed"
+      - "--allow-unauthenticated"
+      - "--memory"
+      - "4Gi"
+      - "--timeout"
+      - "300"
+      - "--set-env-vars"
+      - "PEPMLM_GCS_URI=gs://plasmidgo/pepmlm-650m"
+
+images:
+  - "us-central1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/${_SERVICE_NAME}:${BUILD_ID}"

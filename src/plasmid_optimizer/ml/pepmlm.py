@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
+import os
 import re
 from typing import List
 
+HF_MODEL_ID = "ChatterjeeLab/PepMLM-650M"
 _pepmlm_model = None
 _pepmlm_tokenizer = None
+
+
+def _get_model_path() -> str | None:
+    """Local path if set via PEPMLM_MODEL_PATH (e.g. after syncing from GCS)."""
+    path = os.environ.get("PEPMLM_MODEL_PATH", "").strip()
+    if path and os.path.isdir(path):
+        return path
+    return None
 
 
 def _get_model_and_tokenizer():
@@ -16,8 +26,10 @@ def _get_model_and_tokenizer():
         from transformers import AutoModelForMaskedLM, AutoTokenizer
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        _pepmlm_tokenizer = AutoTokenizer.from_pretrained("ChatterjeeLab/PepMLM-650M")
-        _pepmlm_model = AutoModelForMaskedLM.from_pretrained("ChatterjeeLab/PepMLM-650M").to(device)
+        model_path = _get_model_path()
+        pretrained = model_path if model_path else HF_MODEL_ID
+        _pepmlm_tokenizer = AutoTokenizer.from_pretrained(pretrained)
+        _pepmlm_model = AutoModelForMaskedLM.from_pretrained(pretrained).to(device)
         _pepmlm_model.eval()
     return _pepmlm_model, _pepmlm_tokenizer
 

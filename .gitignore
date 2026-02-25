@@ -1,0 +1,21 @@
+# Model (large; use GCS or scripts/export_pepmlm_for_gcs.py)
+pepmlm-650m/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+.env
+.env.*
+
+# IDE / OS
+.cursor/
+.DS_Store
+
+# Vercel
+.vercel
