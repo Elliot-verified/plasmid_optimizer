@@ -1,0 +1,7 @@
+# Core deps for Vercel (no [ml] to stay under 500MB serverless limit)
+dnachisel>=3.0
+biopython>=1.81
+ViennaRNA>=2.6
+fastapi>=0.104
+# Install the app in place so api.main and plasmid_optimizer are available
+-e .

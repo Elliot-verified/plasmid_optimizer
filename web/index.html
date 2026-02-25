@@ -6,19 +6,20 @@
   <title>Plasmid Optimizer</title>
   <style>
     :root {
-      --bg: #0f1419;
-      --surface: #1a2332;
-      --border: #2d3a4f;
-      --text: #e6edf3;
-      --muted: #8b9eb0;
-      --accent: #58a6ff;
-      --success: #3fb950;
-      --error: #f85149;
+      --bg: #0a0a0a;
+      --surface: #141414;
+      --border: rgba(255, 255, 255, 0.12);
+      --text: #f0f0f0;
+      --muted: #888;
+      --accent: #f0f0f0;
+      --success: #6b6b6b;
+      --error: #999;
     }
     * { box-sizing: border-box; }
     body {
-      font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
-      background: var(--bg);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: radial-gradient(ellipse 120% 80% at 50% 0%, #1a1a1a, #0f0f0f 50%, #0a0a0a);
+      background-attachment: fixed;
       color: var(--text);
       margin: 0;
       padding: 1.5rem;
@@ -26,13 +27,47 @@
       display: flex;
       flex-direction: column;
       align-items: center;
+      position: relative;
+      min-height: 100vh;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background: radial-gradient(ellipse 80% 60% at 50% 20%, rgba(255,255,255,0.04), transparent 60%);
+      filter: blur(100px);
+    }
+    .grain {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.2;
+      z-index: 1;
+      filter: url(#grain) blur(0.8px);
+      background: #fff;
     }
     .container {
       width: 100%;
       max-width: 40rem;
+      position: relative;
+      z-index: 1;
     }
-    h1 { font-size: 1.5rem; margin-top: 0; color: var(--accent); }
-    h2 { font-size: 1rem; margin: 1.5rem 0 0.5rem; color: var(--muted); }
+    h1 {
+      font-size: 1.5rem;
+      margin-top: 0;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    h2 {
+      font-size: 1rem;
+      margin: 1.5rem 0 0.5rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
     label { display: block; margin-bottom: 0.25rem; }
     input[type="text"], input[type="number"], select, textarea {
       width: 100%;
@@ -46,19 +81,21 @@
     }
     textarea { min-height: 120px; resize: vertical; }
     fieldset {
+      background: var(--surface);
       border: 1px solid var(--border);
       padding: 0.75rem 1rem;
       margin-bottom: 1rem;
       width: 100%;
     }
     legend { color: var(--muted); font-size: 0.85rem; }
+    .fieldset-caption { color: var(--muted); font-size: 0.85rem; margin: 0 0 1rem 0; }
     .row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; margin-bottom: 0.5rem; }
     .row label { margin: 0; display: flex; align-items: center; gap: 0.5rem; }
     input[type="checkbox"] { width: auto; }
     button {
-      background: var(--accent);
-      color: var(--bg);
-      border: none;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
       padding: 0.5rem 1rem;
       font-family: inherit;
       font-size: 0.9rem;
@@ -66,8 +103,18 @@
       margin-right: 0.5rem;
       margin-top: 0.5rem;
     }
-    button:hover { opacity: 0.9; }
+    button:hover { border-color: var(--accent); color: var(--accent); }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.primary {
+      background: var(--text);
+      color: var(--bg);
+      border-color: var(--text);
+    }
+    button.primary:hover {
+      opacity: 0.9;
+      border-color: var(--text);
+      color: var(--bg);
+    }
     .secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
     .out {
       background: var(--surface);
@@ -104,16 +151,62 @@
     }
     .copy-btn:hover { color: var(--accent); background: var(--bg); }
     .copy-btn svg { width: 1rem; height: 1rem; }
+    .explainer-toggle {
+      background: none;
+      border: none;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.9rem;
+      padding: 0 0 2px;
+      margin-bottom: 0.5rem;
+    }
+    .explainer-toggle:hover { color: var(--accent); border-bottom-color: var(--accent); }
+    .explainer-content {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 1rem;
+      margin-bottom: 1rem;
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+    .explainer-content.visible { display: block; }
+    .explainer-content h3 { font-size: 0.95rem; color: var(--muted); margin: 0.75rem 0 0.25rem; }
+    .explainer-content h3:first-child { margin-top: 0; }
   </style>
 </head>
 <body>
+  <svg aria-hidden="true" style="position:absolute;width:0;height:0">
+    <defs>
+      <filter id="grain" x="0" y="0">
+        <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch" result="noise"/>
+        <feColorMatrix type="saturate" values="0" in="noise"/>
+      </filter>
+    </defs>
+  </svg>
+  <div class="grain" aria-hidden="true"></div>
   <div class="container">
   <h1>Plasmid Optimizer</h1>
   <p class="muted">Optimize DNA or amino acid sequences for bacterial expression. Generate novel peptides with PepMLM and tune novelty (top-k, temperature).</p>
+  <button type="button" class="explainer-toggle" id="explainerToggle" aria-expanded="false">Learn more about this tool</button>
+  <div class="explainer-content" id="explainerContent" role="region" aria-label="Project explainer">
+    <h3>What does this tool do?</h3>
+    <p>This app helps you design DNA sequences for genes you want to put in a plasmid and express in bacteria. You provide a gene or protein sequence, choose optimization constraints (organism, GC content, restriction enzymes, etc.), and get back a codon-optimized DNA sequence suitable for cloning and expression.</p>
+    <h3>Step 1: Novel peptide generation (optional)</h3>
+    <p>If you want to design a peptide that binds to a specific target protein, use PepMLM here. Enter the target protein sequence (or fetch it from UniProt); the model generates novel peptide sequences predicted to bind. You can copy a result and use it as your sequence in Step 2, or skip this step and paste any gene/protein sequence directly.</p>
+    <h3>Step 2: Your sequence for the plasmid</h3>
+    <p>Paste the amino acid or DNA sequence of the gene you want to express. This is what will be optimized: we preserve the protein sequence but change the DNA (codon choice) to match your organism and constraints.</p>
+    <h3>Step 3: Constraints</h3>
+    <p>Choose the expression organism (e.g. E. coli), GC content limits, restriction enzymes to avoid, and whether to avoid secondary structure and repeats. These settings guide how the DNA is optimized.</p>
+    <h3>Output</h3>
+    <p>Click Optimize to get plasmid-ready DNA and the corresponding amino acid sequence. Use the copy icon on any result to copy it to your clipboard.</p>
+  </div>
 
   <h2>1. Novel peptide generation (optional)</h2>
+  <p class="fieldset-caption">PepMLM: target protein → novel peptide sequences</p>
   <fieldset>
-    <legend>PepMLM: target protein → novel peptide sequences</legend>
     <div class="row">
       <label>Fetch from UniProt</label>
       <input type="text" id="uniprotTarget" placeholder="e.g. Q6JKW3 or paste FASTA URL" style="max-width:24rem" />
@@ -183,7 +276,7 @@
     <input type="text" id="avoidEnzymes" placeholder="e.g. EcoRI, BamHI, BsaI" />
   </fieldset>
 
-  <button type="button" id="btnOptimize">Optimize</button>
+  <button type="button" id="btnOptimize" class="primary">Optimize</button>
   <span id="loading" class="muted">Optimizing…</span>
 
   <div class="out-wrap" id="resultWrap" style="display:none;">
@@ -202,6 +295,14 @@
 
   <script>
     const API_BASE = '';
+    document.getElementById('explainerToggle').onclick = function() {
+      const content = document.getElementById('explainerContent');
+      const toggle = document.getElementById('explainerToggle');
+      content.classList.toggle('visible');
+      const isOpen = content.classList.contains('visible');
+      toggle.setAttribute('aria-expanded', isOpen);
+      toggle.textContent = isOpen ? 'Hide explainer' : 'Learn more about this tool';
+    };
     async function post(path, body) {
       const r = await fetch(API_BASE + path, {
         method: 'POST',
