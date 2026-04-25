@@ -1,10 +1,80 @@
-# Hosting with PepMLM-650M (e.g. on GCP)
+# Hosting with PepMLM-650M
 
-To run the plasmid optimizer **with** PepMLM (novel peptide generation), you need a host that can load the ~650M-parameter model. Vercel’s serverless limit (~500MB) is too small. This guide uses **GCP** to store the model and run the app.
+To run the optimizer **with** PepMLM (novel peptide generation), you need a host that can load the ~650 M-parameter model. Vercel's serverless function limits (~250 MB unzipped, 60 s timeout, no GPU) rule out running PepMLM directly on Vercel.
+
+There are two documented paths:
+- **[Vercel + Modal](#vercel--modal-cheapest-recommended)** — recommended for low-traffic personal/lab tools. Vercel hosts the static site and the lightweight API; Modal hosts PepMLM with weights cached in a Volume. Scale-to-zero on both. Effectively free under Modal's monthly credits.
+- **[GCP (Cloud Run or GCE VM)](#gcp-cloud-run-or-gce-vm)** — heavier setup. Useful if you already live in GCP or want a single-cloud deploy.
+
+---
+
+## Vercel + Modal (cheapest, recommended)
+
+Architecture:
+- Vercel: serves `web/index.html` and the lightweight FastAPI endpoints (`/optimize`, `/fetch-uniprot`, `/species`).
+- `vercel.json` adds a **rewrite** for `/generate-binder` → your Modal URL. Vercel acts as a transparent reverse proxy at the CDN edge — no function timeout applies, browser sees a same-origin response (no CORS to configure).
+- Modal: runs `modal_app.py`, which exposes the PepMLM endpoint and caches model weights in a Modal Volume so cold starts after the first download skip the ~1.3 GB fetch.
+
+### 1. Deploy the PepMLM endpoint to Modal
+
+```bash
+pip install modal
+modal token new                # one-time: opens a browser, links your account
+modal deploy modal_app.py
+```
+
+On success Modal prints the public endpoint URL. It looks like:
+
+```
+https://<your-username>--plasmid-optimizer-pepmlm-pepmlm-generate.modal.run
+```
+
+Copy that URL. The first invocation downloads the weights into the Modal Volume (~60 s); every subsequent cold start mounts the Volume and is much faster (~10–15 s).
+
+### 2. Wire Vercel to Modal
+
+Edit `vercel.json` and replace the placeholder destination with the Modal URL from step 1:
+
+```json
+{
+  "buildCommand": "pip install -r requirements.txt",
+  "rewrites": [
+    {
+      "source": "/generate-binder",
+      "destination": "https://<your-username>--plasmid-optimizer-pepmlm-pepmlm-generate.modal.run"
+    }
+  ]
+}
+```
+
+Commit and deploy to Vercel as usual (`vercel deploy --prod` or via the Git integration). The frontend code is unchanged — it still calls `/generate-binder` on its own origin; Vercel transparently forwards to Modal.
+
+### 3. Verify
+
+- `/` should serve the web UI.
+- `/optimize` should run on Vercel (Python function).
+- `/generate-binder` should hit Modal. Tail Modal logs with `modal app logs plasmid-optimizer-pepmlm` while testing.
+
+### Cost & safety notes
+
+- Modal gives $30/month of free compute credits, which more than covers low-traffic usage of PepMLM-650M on CPU (~30 s per call, ~$0.005 each).
+- `modal_app.py` sets `max_containers=2` as a cost safety net — at most two concurrent containers, so the worst-case attacker cost is bounded.
+- `scaledown_window=300` keeps a warm container for 5 min after the last request, so consecutive calls in a session are fast.
+- The Modal endpoint is **public** (rate-limited by `max_containers`, not by token). If you need stronger auth, deploy your own Vercel function in front instead of the edge rewrite — see "Optional: bearer-token auth" below.
+
+### Optional: bearer-token auth
+
+Edge rewrites can't add `Authorization` headers, so token auth requires putting a Vercel function in the path (which costs you the function-timeout problem again). The simplest workable variant: replace the edge rewrite with a small Vercel function that proxies the request and adds the bearer token. This works for warm calls (~25 s, fits in the 60 s Pro timeout) but **fails on cold starts** (>60 s), so only enable this on Vercel Pro and accept that cold-start calls may time out.
+
+---
+
+## GCP (Cloud Run or GCE VM)
+
+The original GCP-based deployment is documented below for reference. Use this if you already live in GCP or want a single-cloud deploy without involving Modal.
 
 **Bucket used in examples:** `plasmidgo` (your GCP Storage bucket).
 
-## 1. Save the model to Google Cloud Storage (GCS)
+### 1. Save the model to Google Cloud Storage (GCS)
 
 Do this once from a machine with enough disk and network (e.g. your laptop or a small GCE VM).
 
@@ -32,7 +102,7 @@ You can delete the local `./pepmlm-650m` folder after upload to save disk space.
 
 ---
 
-## 2. Run the app on GCP and load the model from GCS
+### 2. Run the app on GCP and load the model from GCS
 
 Two practical options: **Cloud Run** (serverless, scales to zero) or a **GCE VM** (always-on, good if you want a persistent cache).
 
@@ -129,7 +199,7 @@ Run under a process manager (e.g. systemd) and add the disk mount + `PEPMLM_MODE
 
 ---
 
-## 3. Environment variable summary
+### 3. Environment variable summary
 
 | Variable | Meaning |
 |----------|--------|
@@ -138,7 +208,7 @@ Run under a process manager (e.g. systemd) and add the disk mount + `PEPMLM_MODE
 
 ---
 
-## 4. Cost notes
+### 4. Cost notes
 
 - **GCS**: Storage for the model is a few dollars per month (e.g. ~$0.02/GB in Standard class).
 - **Cloud Run**: You pay for CPU/memory and request time; scaling to zero avoids cost when idle. Cold starts re-download the model unless you use a custom cache layer.
@@ -146,7 +216,7 @@ Run under a process manager (e.g. systemd) and add the disk mount + `PEPMLM_MODE
 
 ---
 
-## 5. Quick local test with a pre-downloaded model
+### 5. Quick local test with a pre-downloaded model
 
 After exporting the model once:
 

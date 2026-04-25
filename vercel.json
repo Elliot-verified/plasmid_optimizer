@@ -1,3 +1,9 @@
 {
-  "buildCommand": "pip install -r requirements.txt"
+  "buildCommand": "pip install -r requirements.txt",
+  "rewrites": [
+    {
+      "source": "/generate-binder",
+      "destination": "https://elliot-verified--plasmid-optimizer-pepmlm-pepmlm-generate.modal.run"
+    }
+  ]
 }
