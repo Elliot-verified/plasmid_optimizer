@@ -1,7 +1,7 @@
-# Core deps for Vercel (no [ml] to stay under 500MB serverless limit)
+# Core deps for Vercel (no [ml] to stay under serverless size limit).
+# api/index.py manipulates sys.path so the local source is importable
+# without a wheel install — avoids editable-install issues on Vercel.
 dnachisel>=3.0
 biopython>=1.81
 ViennaRNA>=2.6
 fastapi>=0.104
-# Install the app in place so api.main and plasmid_optimizer are available
--e .

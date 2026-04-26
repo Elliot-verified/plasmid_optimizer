@@ -4,6 +4,10 @@
     {
       "source": "/generate-binder",
       "destination": "https://elliot-verified--plasmid-optimizer-pepmlm-pepmlm-generate.modal.run"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/api/index"
     }
   ]
 }
