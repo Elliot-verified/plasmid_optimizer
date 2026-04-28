@@ -58,9 +58,10 @@
   .meta-dot{width:5px;height:5px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px color-mix(in oklch, var(--accent) 18%, transparent)}
   .meta-row .sep{color:var(--muted-2)}
   h1{
-    font-family:var(--sans);font-weight:600;font-size:34px;letter-spacing:.18em;
+    font-family:var(--sans);font-weight:600;font-size:clamp(24px, 7.2vw, 34px);letter-spacing:.18em;
     text-transform:uppercase;margin:0 0 14px;color:#f4f4f4;
     text-shadow:0 1px 0 rgba(0,0,0,.4);
+    overflow-wrap:break-word;
   }
   .sub{color:var(--text-dim);font-size:15px;max-width:54ch;margin:0 0 18px}
   .explain-toggle{
@@ -82,7 +83,7 @@
 
   /* ─────────── Pipeline ─────────── */
   .pipeline{
-    display:grid;grid-template-columns:repeat(5,1fr);gap:0;
+    display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;
     margin:32px 0 24px;
     border:1px solid var(--line);background:var(--surface);
     position:sticky;top:12px;z-index:5;
@@ -107,8 +108,9 @@
   .stage.active{background:rgba(255,255,255,.04)}
   .stage.active::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:1px;background:var(--text);opacity:.4}
   @media (max-width:620px){
-    .stage{padding:10px 8px}
-    .stage .name{font-size:11.5px}
+    .stage{padding:10px 6px;min-width:0}
+    .stage .num{font-size:9px;letter-spacing:.1em}
+    .stage .name{font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .stage .name span.preview{display:none}
   }
 
@@ -396,7 +398,7 @@
       <span class="sep">/</span>
       <span>Codon optimization &amp; binder design</span>
     </div>
-    <h1>Plasmid&nbsp;Optimizer</h1>
+    <h1>Plasmid Optimizer</h1>
     <p class="sub">Optimize DNA or amino-acid sequences for bacterial expression. Generate novel peptides with PepMLM and tune novelty (top-k, temperature).</p>
     <button class="explain-toggle" id="explainerToggle" aria-expanded="false">
       <span class="chev">›</span><span>How this pipeline works</span>
